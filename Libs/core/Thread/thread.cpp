@@ -1,34 +1,41 @@
 #include "thread.h"
 
-void Thread::StartThread(LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter)
+Thread::Thread(LPTHREAD_START_ROUTINE proc, LPVOID param)
 {
-	hThread = CreateThread(NULL, 0, lpStartAddress, lpParameter, 0, &IDThread);
-	if (hThread == NULL)
-		ErrorMessageBox();
+	hThread = CreateThread(NULL, 0, proc, param, 0, &IDThread);
+	if (!hThread)
+	{
+		DWORD err = GetLastError();
+		throw std::system_error(static_cast<int>(err), std::system_category(), "CreateThread failed");
+	}
 }
 
-void Thread::ErrorMessageBox()
+void Thread::join(DWORD wait)
 {
-	LPVOID lpMsgBuf;
+	if (hThread)
+	{
+		DWORD res = WaitForSingleObject(hThread, wait);
+		switch (res)
+		{
+		case WAIT_OBJECT_0: close(); break;
+		case WAIT_TIMEOUT: throw std::runtime_error("Waiting time expired!"); break;
+		case WAIT_FAILED: throw std::system_error(static_cast<int>(GetLastError()), std::system_category(), "WaitForSingleObject failed"); break;
+		default: throw std::runtime_error("Unexpected result from WaitForSingleObject!"); break;
+		}
+		close();
+	}
+}
 
-	FormatMessage(
-		FORMAT_MESSAGE_ALLOCATE_BUFFER |
-		FORMAT_MESSAGE_FROM_SYSTEM |
-		FORMAT_MESSAGE_IGNORE_INSERTS,
-		NULL,
-		GetLastError(),
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // язык по умолчанию
-		(LPTSTR)&lpMsgBuf,
-		0,
-		NULL
-	);
-	// Показать ошибку в MessageBox.
-	MessageBox(
-		NULL,
-		(LPCTSTR)lpMsgBuf,
-		L"Ошибка Win32 API",
-		MB_OK | MB_ICONINFORMATION
-	);
-	// Освободить буфер.
-	LocalFree(lpMsgBuf);
+void Thread::close()
+{
+	if (hThread)
+	{
+		bool res = CloseHandle(hThread);
+		if (!res)
+		{
+			throw std::system_error(static_cast<int>(GetLastError()), std::system_category(), "CloseHandle failed");
+		}
+		hThread = nullptr;
+	}
+	IDThread = 0;
 }

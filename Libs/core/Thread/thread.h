@@ -4,19 +4,32 @@
 #define PROCESS_H
 
 #include <iostream>
+#include <functional>
 #include <windows.h>
+#include <format>
 
 class Thread
 {
 	HANDLE hThread;
 	DWORD IDThread;
 public:
-	Thread() : hThread(0), IDThread(0) {};
+	Thread() = default;
 
-	void StartThread(LPTHREAD_START_ROUTINE lpStartAddress, // адрес исполняемой функции
-		LPVOID lpParameter); // адрес параметра
+	Thread(LPTHREAD_START_ROUTINE proc, LPVOID param = nullptr);
 
-	void ErrorMessageBox();
+	Thread(const Thread&) = delete;
+	Thread& operator=(const Thread&) = delete;
+
+	Thread(Thread&& other) = default;
+	~Thread() { close(); };
+	
+	void join(DWORD wait=INFINITE);
+
+	DWORD get_id() const noexcept { return IDThread; }
+	HANDLE native_handle() const noexcept { return hThread; }
+
+private:
+	void close();
 };
 
 #endif // PROCESS_H
